@@ -13,6 +13,7 @@ They automate repetitive tasks so the whole team benefits from them.
 |-------|---------|-------------|
 | `release` | `/release v1.2.3` | Create a tagged GitHub release with auto-generated release notes |
 | `ampel-install` | `/ampel-install` | Browse and install skills from this repo |
+| `test-framework-dev` | `/test-framework-dev` | Development workflows for the Ampel test framework (FT-AMD) |
 
 ## How to install skills
 

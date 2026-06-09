@@ -1,0 +1,5 @@
+﻿interface:
+  display_name: "FT Test Framework Dev"
+  short_description: "Develop Ampel FT test framework apps"
+  default_prompt: "Use this skill when working on Ampel functional-test framework projects, test steps, TPF configuration, submodules, build packaging, or ft-amd-style applications."
+
