@@ -1,0 +1,19 @@
+{
+  "name": "ampel-skills",
+  "owner": {
+    "name": "Ampel Technologies",
+    "url": "https://github.com/Ampel-Technologies"
+  },
+  "plugins": [
+    {
+      "name": "release",
+      "source": "./skills/release",
+      "description": "Automates creating GitHub releases from the current git repo. Use this skill whenever the user wants to create a release, publish a version, tag a commit for release, generate release notes, or publish to GitHub releases."
+    },
+    {
+      "name": "test-framework-dev",
+      "source": "./skills/test-framework-dev",
+      "description": "Develop Ampel functional-test framework projects and ft-amd-style test applications. Use when working on .NET 8 Windows FT apps, FTTest/FTTestStep code, TPF.json configuration, operator GUI integration, submodule wiring, database/login/label-printer/logger integrations, Makefile packaging, or test-framework architecture decisions."
+    }
+  ]
+}
