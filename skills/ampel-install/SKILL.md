@@ -15,17 +15,20 @@ selected skills directly into Claude Code -- no manual file copying needed.
 
 ## Workflow
 
-### Step 1 - Find all skills session directories and their manifests
+### Step 1 - Find ALL session directories (current and future-proof)
 
-Skills in Claude Code live under session-specific directories. We must update ALL of them
-so skills appear regardless of which session is active:
+Skills live inside `local-agent-mode-sessions\skills-plugin\<outer-uuid>\<inner-uuid>\`.
+New outer sessions are created every time Claude Code starts a fresh context -- we must
+update ALL of them so skills survive restarts and new windows.
 
 ```powershell
-# Find all manifest.json files under the skills-plugin directory
-$manifests = Get-ChildItem "$env:APPDATA\Claude\local-agent-mode-sessions\skills-plugin" `
-    -Recurse -Filter "manifest.json" | Select-Object -ExpandProperty FullName
+$pluginBase = "$env:APPDATA\Claude\local-agent-mode-sessions\skills-plugin"
 
-# The skills folder is always a sibling of manifest.json
+# Find every manifest.json recursively -- covers all current and future outer sessions
+$manifests = Get-ChildItem $pluginBase -Recurse -Filter "manifest.json" |
+    Select-Object -ExpandProperty FullName
+
+# Derive the skills folder from each manifest path
 $skillsDirs = $manifests | ForEach-Object { Join-Path (Split-Path $_) "skills" }
 
 Write-Host "Found $($manifests.Count) session(s) to update"
@@ -46,7 +49,7 @@ $available = $response | Where-Object { $_.type -eq "dir" } | Select-Object name
 
 ### Step 3 - Show what's available vs installed
 
-Check which skills exist in the primary skills directory, then show the user:
+Check which skills exist in the first skills directory, then show the user:
 
 ```
 Available Ampel skills:
@@ -58,9 +61,9 @@ Available Ampel skills:
 Which skills would you like to install/update? (names separated by commas, or "all")
 ```
 
-### Step 4 - Download skill files
+### Step 4 - Download skill files into ALL sessions
 
-For each selected skill, recursively download all files from GitHub:
+For each selected skill, recursively download all files from GitHub into every session:
 
 ```powershell
 function Download-SkillDir {
@@ -77,7 +80,6 @@ function Download-SkillDir {
     }
 }
 
-# Install into EVERY skills directory found in Step 1
 foreach ($skillsDir in $skillsDirs) {
     $targetDir = Join-Path $skillsDir $skillName
     Download-SkillDir -apiUrl $skillApiUrl -localPath $targetDir -headers $headers
@@ -87,13 +89,12 @@ foreach ($skillsDir in $skillsDirs) {
 ### Step 5 - Read the skill's description from its SKILL.md
 
 Parse the `description` field from the YAML frontmatter of the downloaded SKILL.md.
-This is needed to register it in the manifest.
 
 ```powershell
+$primarySkillsDir = $skillsDirs[0]
 $skillMdPath = Join-Path $primarySkillsDir "$skillName\SKILL.md"
-$content = Get-Content $skillMdPath -Raw
+$content = Get-Content $skillMdPath -Encoding UTF8 | Out-String
 
-# Extract description between frontmatter markers
 if ($content -match "(?s)---.*?description: >?\s*\n([\s\S]+?)(?:---|\w+:)") {
     $description = ($matches[1] -replace "\s+", " ").Trim()
 }
@@ -101,16 +102,13 @@ if ($content -match "(?s)---.*?description: >?\s*\n([\s\S]+?)(?:---|\w+:)") {
 
 ### Step 6 - Register the skill in ALL manifest.json files
 
-This is critical -- skills only appear in Claude Code if they are listed in the manifest.
-Update every manifest found in Step 1:
-
 ```powershell
 foreach ($manifestPath in $manifests) {
-    $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+    $manifest = Get-Content $manifestPath -Encoding UTF8 | ConvertFrom-Json
     $existingIds = $manifest.skills | ForEach-Object { $_.skillId }
 
     if ($existingIds -notcontains $skillName) {
-        $manifest.skills += [PSCustomObject]@{
+        $newEntry = [PSCustomObject]@{
             skillId     = $skillName
             name        = $skillName
             description = $description
@@ -118,8 +116,9 @@ foreach ($manifestPath in $manifests) {
             updatedAt   = $null
             enabled     = $true
         }
+        # Build a new array (+= on PSCustomObject arrays can lose type info)
+        $manifest.skills = @($manifest.skills) + $newEntry
     } else {
-        # Update description in case it changed
         $existing = $manifest.skills | Where-Object { $_.skillId -eq $skillName }
         $existing.description = $description
     }
@@ -128,18 +127,37 @@ foreach ($manifestPath in $manifests) {
 }
 ```
 
-### Step 7 - Confirm and instruct reload
+### Step 7 - Handle new sessions created after install
+
+New Claude Code windows create a fresh outer session UUID that won't have user skills.
+After installing, remind the user to re-run `/ampel-install` or `/reload-skills` whenever
+they open a brand-new Claude Code window for the first time. To check if skills are missing:
+
+```powershell
+# Quick check: how many outer sessions exist, and how many have our skills?
+$allManifests = Get-ChildItem "$env:APPDATA\Claude\local-agent-mode-sessions\skills-plugin" `
+    -Recurse -Filter "manifest.json"
+foreach ($m in $allManifests) {
+    $skills = (Get-Content $m.FullName -Encoding UTF8 | ConvertFrom-Json).skills
+    $userSkills = $skills | Where-Object { $_.creatorType -eq "user" }
+    Write-Host "$($m.FullName): $($userSkills.Count) user skill(s)"
+}
+```
+
+### Step 8 - Confirm and instruct reload
 
 ```
 Installed successfully:
   - test-framework-dev
 
-Type /reload-skills to activate them immediately (no restart needed).
+Run /reload-skills to activate immediately.
+If skills don't appear after reload, restart Claude Code -- new sessions require a full restart.
 ```
 
 ## Notes
 
 - Skills must be registered in manifest.json to appear -- copying files alone is not enough
 - All session manifests are updated so skills persist across session changes
+- **New Claude Code windows** create new outer session UUIDs. Run `/ampel-install` once per
+  new window to re-populate it, or restart Claude Code after install so it picks up all sessions
 - No GITHUB_TOKEN required (public repo), but it avoids GitHub API rate limits
-- Use /reload-skills after install instead of restarting Claude Code
