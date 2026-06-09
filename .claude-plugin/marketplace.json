@@ -14,6 +14,11 @@
       "name": "test-framework-dev",
       "source": "./skills/test-framework-dev",
       "description": "Develop Ampel functional-test framework projects and ft-amd-style test applications. Use when working on .NET 8 Windows FT apps, FTTest/FTTestStep code, TPF.json configuration, operator GUI integration, submodule wiring, database/login/label-printer/logger integrations, Makefile packaging, or test-framework architecture decisions."
+    },
+    {
+      "name": "prins-fixture",
+      "source": "./skills/prins-fixture",
+      "description": "Interact with the Ampel Prins switch fixture over TCP using the prins-fixture-mcp server. Use when sending fixture commands, setting LEDs, reading switch presence/version/EEPROM, running button or buzzer tests, managing fixture status, or configuring the MCP server for fixture communication."
     }
   ]
 }
